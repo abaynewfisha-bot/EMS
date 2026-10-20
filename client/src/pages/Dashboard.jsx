@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import api from "../api.js";
+import api from "../api/api.js";
 import StatCard from "../components/StatCard.jsx";
 import { FullPageSpinner } from "../components/Spinner.jsx";
 import { useToast } from "../components/Toast.jsx";

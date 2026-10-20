@@ -101,7 +101,12 @@ CREATE TABLE IF NOT EXISTS notifications (
   is_read     BOOLEAN NOT NULL DEFAULT FALSE,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE notifications
+ADD COLUMN IF NOT EXISTS employee_id INTEGER
+REFERENCES employees(id) ON DELETE CASCADE;
 
+CREATE INDEX IF NOT EXISTS idx_notifications_employee_read
+ON notifications(employee_id, is_read, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(is_read);
 CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at DESC);
 

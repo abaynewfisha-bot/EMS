@@ -1,13 +1,8 @@
-import { query } from "./db.js";
+import { notify } from "../notifications.js";
 
-export async function notify({ title, message = null, type = "info", link = null }) {
-  try {
-    await query(
-      `INSERT INTO notifications (title, message, type, link)
-       VALUES ($1, $2, $3, $4)`,
-      [title, message, type, link]
-    );
-  } catch (err) {
-    console.error("Failed to create notification:", err.message);
-  }
-}
+await notify({
+  title: "Attendance Updated",
+  message: "An attendance record was updated.",
+  type: "info",
+  link: "/attendance",
+});

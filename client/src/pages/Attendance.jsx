@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import api from "../api.js";
+import api from "../api/api.js";
 import AttendanceForm from "../components/AttendanceForm.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import StatCard from "../components/StatCard.jsx";

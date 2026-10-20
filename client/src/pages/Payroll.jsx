@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import api from "../api.js";
+import api from "../api/api.js";
 import PayrollForm from "../components/PayrollForm.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import { FullPageSpinner } from "../components/Spinner.jsx";

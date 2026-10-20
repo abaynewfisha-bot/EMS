@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import api from "../api.js";
+import api from "../api/api.js";
 import { FullPageSpinner } from "../components/Spinner.jsx";
 import { useToast } from "../components/Toast.jsx";
 
