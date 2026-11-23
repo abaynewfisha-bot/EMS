@@ -5,10 +5,11 @@ import { useToast } from "../components/Toast.jsx";
 import RefreshButton from "../components/RefreshButton.jsx";
 
 const DEFAULTS = {
-  org_name: "University EMS",
-  org_short_name: "UniStaff",
-  currency: "USD",
-  timezone: "UTC",
+  org_name: "Ethiopian Employee Management System",
+  org_short_name: "Ethiopian EMS",
+  currency: "ETB",
+  timezone: "Africa/Addis_Ababa",
+  calendar: "ethiopian",
   payroll_auto_compute: "true",
   enable_notifications: "true",
   theme: "light",
@@ -35,6 +36,13 @@ export default function Settings() {
     load();
   }, [toast]);
 
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("unistaff_settings") || "{}");
+      if (stored.theme) document.documentElement.dataset.theme = stored.theme;
+    } catch {}
+  }, []);
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setSettings((s) => ({
@@ -49,6 +57,9 @@ export default function Settings() {
     try {
       const data = await api.updateSettings(settings);
       setSettings((s) => ({ ...s, ...data }));
+      localStorage.setItem("unistaff_settings", JSON.stringify(data));
+      document.documentElement.dataset.theme = data.theme || settings.theme || "light";
+      window.dispatchEvent(new CustomEvent("unistaff-settings-changed", { detail: data }));
       toast.success("Settings saved.");
     } catch (err) {
       toast.error(err.message);
@@ -100,14 +111,23 @@ export default function Settings() {
             <h3 className="text-base font-semibold text-slate-900">System</h3>
             <p className="text-sm text-slate-500">Localization & preferences</p>
           </div>
-          <div className="grid grid-cols-1 gap-4 px-6 py-5 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 px-6 py-5 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <label className="label">Currency</label>
-              <input className="input" name="currency" value={settings.currency || ""} onChange={handleChange} placeholder="USD, PKR, EUR..." />
+              <select className="input" name="currency" value={settings.currency || "ETB"} onChange={handleChange}>
+                <option value="ETB">ETB - Ethiopian Birr</option>
+                <option value="USD">USD - US Dollar</option>
+                <option value="EUR">EUR - Euro</option>
+                <option value="GBP">GBP - British Pound</option>
+              </select>
             </div>
             <div>
               <label className="label">Timezone</label>
-              <input className="input" name="timezone" value={settings.timezone || ""} onChange={handleChange} placeholder="UTC, Asia/Karachi..." />
+              <select className="input" name="timezone" value={settings.timezone || "Africa/Addis_Ababa"} onChange={handleChange}>
+                <option value="Africa/Addis_Ababa">Africa/Addis_Ababa (EAT)</option>
+                <option value="UTC">UTC</option>
+                <option value="Africa/Nairobi">Africa/Nairobi (EAT)</option>
+              </select>
             </div>
             <div>
               <label className="label">Theme</label>
@@ -115,6 +135,13 @@ export default function Settings() {
                 <option value="light">Light</option>
                 <option value="dark">Dark</option>
                 <option value="system">System</option>
+              </select>
+            </div>
+            <div>
+              <label className="label">Calendar</label>
+              <select className="input" name="calendar" value={settings.calendar || "ethiopian"} onChange={handleChange}>
+                <option value="ethiopian">Ethiopian Calendar</option>
+                <option value="gregorian">Gregorian Calendar</option>
               </select>
             </div>
           </div>

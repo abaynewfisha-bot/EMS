@@ -1,9 +1,20 @@
-export const formatCurrency = (value) =>
-  new Intl.NumberFormat("en-US", {
+const getStoredSetting = (key, fallback) => {
+  try {
+    return JSON.parse(localStorage.getItem("unistaff_settings") || "{}")[key] || fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+export const formatCurrency = (value) => {
+  const currency = getStoredSetting("currency", "ETB");
+  return new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "USD",
+    currency,
+    currencyDisplay: "symbol",
     maximumFractionDigits: 0,
   }).format(Number(value) || 0);
+};
 
 export const formatDate = (value) => {
   if (!value) return "—";

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth.jsx";
 import { DashboardIcon, UsersIcon, BuildingIcon, GraduationIcon, CalendarIcon, MenuIcon, CloseIcon, BellIcon, CogIcon, BankIcon, LogoutIcon } from "./Icons.jsx";
@@ -42,7 +42,7 @@ const nav = [
   ]},
 ];
 
-function SidebarContent({ onNavigate }) {
+function SidebarContent({ onNavigate, organization }) {
   return (
     <>
       <div className="flex items-center gap-3 px-5 py-5">
@@ -50,8 +50,8 @@ function SidebarContent({ onNavigate }) {
           <GraduationIcon className="h-6 w-6" />
         </div>
         <div>
-          <p className="text-sm font-bold text-white">UniStaff</p>
-          <p className="text-xs text-slate-400">Employee Management</p>
+          <p className="text-sm font-bold text-white">{organization?.shortName || "Ethiopian EMS"}</p>
+          <p className="max-w-36 text-xs text-slate-400">Employee Management</p>
         </div>
       </div>
 
@@ -111,6 +111,30 @@ function SidebarContent({ onNavigate }) {
 
 export default function Layout({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [organization, setOrganization] = useState(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("unistaff_settings") || "{}");
+      return {
+        name: stored.org_name || "Ethiopian Employee Management System",
+        shortName: stored.org_short_name || "Ethiopian EMS",
+      };
+    } catch {
+      return { name: "Ethiopian Employee Management System", shortName: "Ethiopian EMS" };
+    }
+  });
+
+  useEffect(() => {
+    const applySettings = (event) => {
+      const settings = event.detail || {};
+      setOrganization({
+        name: settings.org_name || "Ethiopian Employee Management System",
+        shortName: settings.org_short_name || "Ethiopian EMS",
+      });
+      document.documentElement.dataset.theme = settings.theme || "light";
+    };
+    window.addEventListener("unistaff-settings-changed", applySettings);
+    return () => window.removeEventListener("unistaff-settings-changed", applySettings);
+  }, []);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -131,7 +155,7 @@ export default function Layout({ children }) {
   return (
     <div className="flex h-screen overflow-hidden bg-[#eef2f8]">
       <aside className="hidden w-64 shrink-0 flex-col bg-[#111827] lg:flex">
-        <SidebarContent />
+        <SidebarContent organization={organization} />
       </aside>
 
       {mobileOpen && (
@@ -145,7 +169,7 @@ export default function Layout({ children }) {
             >
               <CloseIcon />
             </button>
-            <SidebarContent onNavigate={() => setMobileOpen(false)} />
+            <SidebarContent organization={organization} onNavigate={() => setMobileOpen(false)} />
           </aside>
         </div>
       )}

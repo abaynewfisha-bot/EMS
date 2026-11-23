@@ -183,60 +183,56 @@ export default function Employees() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <table className="w-full min-w-[980px] text-left text-sm">
+              <thead className="border-b border-slate-700/70 text-xs text-slate-300">
                 <tr>
-                  <SortHeader column="first_name">Employee</SortHeader>
-                  <th className="px-6 py-3 font-semibold">Staff No.</th>
-                  <SortHeader column="position">Position</SortHeader>
-                  <th className="px-6 py-3 font-semibold">Department</th>
-                  <th className="px-6 py-3 font-semibold">Role</th>
-                  <SortHeader column="salary">Salary</SortHeader>
-                  <th className="px-6 py-3 font-semibold">Status</th>
-                  <th className="px-6 py-3 text-right font-semibold">Actions</th>
+                  <th className="px-5 py-3 font-medium">Employee ID</th>
+                  <th className="px-5 py-3 font-medium">Name</th>
+                  <th className="px-5 py-3 font-medium">Department</th>
+                  <th className="px-5 py-3 font-medium">Faculty</th>
+                  <th className="px-5 py-3 font-medium">Position</th>
+                  <th className="px-5 py-3 font-medium">Job Grade</th>
+                  <th className="px-5 py-3 font-medium">Status</th>
+                  <th className="px-5 py-3 font-medium">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-700/60">
                 {employees.map((e) => (
-                  <tr key={e.id} className="hover:bg-slate-50">
-                    <td className="px-6 py-3">
+                  <tr key={e.id} className="text-slate-200 hover:bg-slate-700/30">
+                    <td className="px-5 py-3 text-xs text-slate-300">{e.staff_no}</td>
+                    <td className="px-5 py-3">
                       <div className="flex items-center gap-3">
-                        <div className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold text-white ${colorForId(e.id)}`}>
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-500 text-xs font-semibold text-white">
                           {e.first_name[0]}
                           {e.last_name[0]}
                         </div>
                         <div>
-                          <p className="font-medium text-slate-800">
-                            {e.first_name} {e.last_name}
-                          </p>
-                          <p className="text-xs text-slate-400">{e.email}</p>
+                          <p className="font-medium text-slate-100">{e.first_name} {e.last_name}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-3 font-mono text-xs text-slate-500">{e.staff_no}</td>
-                    <td className="px-6 py-3 text-slate-600">
-                      <p>{e.position}</p>
-                      <p className="text-xs text-slate-400">{e.employment_type}</p>
+                    <td className="px-5 py-3 text-slate-300">{e.department_name || "—"}</td>
+                    <td className="px-5 py-3 text-slate-300">{e.role_type}</td>
+                    <td className="px-5 py-3 text-slate-300">{e.position}</td>
+                    <td className="px-5 py-3 text-slate-300">Grade VII</td>
+                    <td className="px-5 py-3">
+                      <span className={`rounded-full px-3 py-1 text-xs font-medium ${
+                        e.status === "Active" ? "bg-emerald-500/20 text-emerald-300"
+                        : e.status === "On Leave" ? "bg-amber-500/20 text-amber-300"
+                        : "bg-red-500/20 text-red-300"
+                      }`}>{e.status}</span>
                     </td>
-                    <td className="px-6 py-3 text-slate-600">{e.department_name || "—"}</td>
-                    <td className="px-6 py-3">
-                      <RoleBadge role={e.role_type} />
-                    </td>
-                    <td className="px-6 py-3 font-medium text-slate-700">{formatCurrency(e.salary)}</td>
-                    <td className="px-6 py-3">
-                      <StatusBadge status={e.status} />
-                    </td>
-                    <td className="px-6 py-3">
-                      <div className="flex items-center justify-end gap-1">
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-1">
                         <button
-                          className="rounded-lg p-1.5 text-slate-400 hover:bg-brand-50 hover:text-brand-600"
+                          className="rounded-md p-1.5 text-slate-400 hover:bg-slate-700 hover:text-white"
                           onClick={() => openEdit(e)}
                           title="Edit"
                         >
                           <EditIcon className="h-4 w-4" />
                         </button>
                         <button
-                          className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                          className="rounded-md p-1.5 text-slate-400 hover:bg-slate-700 hover:text-white"
                           onClick={() => setDeleting(e)}
                           title="Delete"
                         >
@@ -252,8 +248,8 @@ export default function Employees() {
         )}
 
         {!loading && employees.length > 0 && (
-          <div className="flex items-center justify-between border-t border-slate-100 px-6 py-3">
-            <p className="text-sm text-slate-500">
+          <div className="flex items-center justify-between border-t border-slate-700/60 px-5 py-3">
+            <p className="text-xs text-slate-400">
               Page {pagination.page} of {pagination.pages} · {pagination.total} total
             </p>
             <div className="flex items-center gap-2">
@@ -292,6 +288,7 @@ export default function Employees() {
         onConfirm={handleDelete}
         onCancel={() => setDeleting(null)}
       />
+      </div>
     </div>
   );
 }

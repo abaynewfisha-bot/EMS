@@ -147,92 +147,47 @@ export default function Attendance() {
   );
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+    <div className="-m-4 min-h-[calc(100%-0rem)] bg-[#edf1f7] p-4 sm:-m-6 sm:p-6 lg:-m-8 lg:p-8">
+      <div className="mx-auto max-w-[1600px] space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Attendance</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            {pagination.total} records from {formatDate(from)} to {formatDate(to)}
-          </p>
+          <h2 className="text-xl font-bold text-slate-900">Attendance Tracking</h2>
+          <p className="mt-1 text-sm text-slate-500">Daily attendance records and status</p>
         </div>
-        <div className="flex gap-2">
-          <RefreshButton onClick={load} loading={loading} />
-          <button className="btn-primary" onClick={() => { setEditing(null); setFormOpen(true); }}>
-            <PlusIcon className="h-4 w-4" /> Mark Attendance
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <label className="text-xs font-medium text-slate-500">Date Picker</label>
+          <input type="date" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700" value={to} onChange={(e) => { setTo(e.target.value); setFrom(e.target.value); setPage(1); }} />
+          <button className="rounded-lg border border-slate-300 bg-white p-2 text-slate-500" onClick={() => setStatus((old) => old ? "" : "Present")} title="Filter">
+            <CalendarIcon className="h-4 w-4" />
+          </button>
+          <button className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white" onClick={() => { setEditing(null); setFormOpen(true); }}>
+            <span className="mr-1">+</span> Mark
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Present"
-          value={summary?.present ?? 0}
-          icon={CheckIcon}
-          accent="bg-emerald-50 text-emerald-600"
-          hint={`${summary?.remote ?? 0} working remotely`}
-        />
-        <StatCard
-          label="Late"
-          value={summary?.late ?? 0}
-          icon={ClockIcon}
-          accent="bg-amber-50 text-amber-600"
-          hint="Arrived after check-in time"
-        />
-        <StatCard
-          label="Absent"
-          value={summary?.absent ?? 0}
-          icon={CloseIcon}
-          accent="bg-rose-50 text-rose-600"
-          hint="Unexcused in selected period"
-        />
-        <StatCard
-          label="On Leave"
-          value={summary?.on_leave ?? 0}
-          icon={CalendarIcon}
-          accent="bg-sky-50 text-sky-600"
-          hint={`${summary?.total ?? 0} total records`}
-        />
+      <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 xl:grid-cols-4">
+        {[
+          ["Present", summary?.present ?? 0, "+2", "emerald"],
+          ["Absent", summary?.absent ?? 0, "-1", "rose"],
+          ["Late", summary?.late ?? 0, "3 on grace", "amber"],
+          ["On Leave", summary?.on_leave ?? 0, "Approved time off", "violet"],
+        ].map(([label, value, note, tone]) => (
+          <div key={label} className="relative overflow-hidden rounded-xl border border-slate-700/80 bg-[#1c2638] p-5 text-white">
+            <div className="flex items-start justify-between">
+              <div><p className="text-sm text-slate-300">{label}</p><p className="mt-2 text-3xl font-bold">{value}</p><p className="mt-2 text-xs text-slate-400">{tone === "emerald" ? "↗ " : tone === "rose" ? "↓ " : ""}{note}</p></div>
+              <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${
+                tone === "emerald" ? "bg-emerald-500/20 text-emerald-300" :
+                tone === "rose" ? "bg-rose-500/20 text-rose-300" :
+                tone === "amber" ? "bg-amber-500/20 text-amber-300" :
+                "bg-violet-500/20 text-violet-300"
+              }`}>{tone === "emerald" ? "✓" : tone === "rose" ? "⊘" : tone === "amber" ? "△" : "▣"}</div>
+            </div>
+          </div>
+        ))}
       </div>
 
-      <div className="card p-4">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-          <div className="relative md:col-span-2">
-            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              className="input pl-9"
-              placeholder="Search by name or staff number..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <select className="input" value={departmentId} onChange={(e) => { setDepartmentId(e.target.value); setPage(1); }}>
-            <option value="">All Departments</option>
-            {departments.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-          <select className="input" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
-            <option value="">All Statuses</option>
-            {ATTENDANCE_STATUSES.map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>
-        </div>
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:max-w-md">
-          <div>
-            <label className="label">From</label>
-            <input type="date" className="input" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }} />
-          </div>
-          <div>
-            <label className="label">To</label>
-            <input type="date" className="input" value={to} onChange={(e) => { setTo(e.target.value); setPage(1); }} />
-          </div>
-        </div>
-      </div>
-
-      <div className="card overflow-hidden">
+      <div className="overflow-hidden rounded-xl border border-slate-700/70 bg-[#1c2638]">
         {loading ? (
           <FullPageSpinner />
         ) : records.length === 0 ? (
@@ -243,48 +198,67 @@ export default function Attendance() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/70 px-5 py-4">
+              <h3 className="font-semibold text-white">Daily Attendance Tracking Table</h3>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input className="w-52 rounded-lg border border-slate-600/70 bg-[#111827] py-2 pl-9 pr-3 text-xs text-slate-100 placeholder:text-slate-500" placeholder="Search" value={search} onChange={(e) => setSearch(e.target.value)} />
+                </div>
+                <button className="rounded-lg border border-slate-600 p-2 text-slate-400" onClick={() => setStatus((old) => old ? "" : "Present")} title="Filter">≡</button>
+              </div>
+            </div>
+            <table className="w-full min-w-[980px] text-left text-sm">
+              <thead className="border-b border-slate-700/70 text-xs text-slate-300">
                 <tr>
-                  <SortHeader column="first_name">Employee</SortHeader>
-                  <th className="px-6 py-3 font-semibold">Staff No.</th>
-                  <th className="px-6 py-3 font-semibold">Department</th>
-                  <SortHeader column="date">Date</SortHeader>
-                  <SortHeader column="status">Status</SortHeader>
-                  <th className="px-6 py-3 font-semibold">Check In</th>
-                  <th className="px-6 py-3 font-semibold">Check Out</th>
-                  <th className="px-6 py-3 text-right font-semibold">Actions</th>
+                  <th className="px-5 py-3 font-medium"><input type="checkbox" aria-label="Select all" /></th>
+                  <th className="px-5 py-3 font-medium">Employee Name</th>
+                  <th className="px-5 py-3 font-medium">Department</th>
+                  <th className="px-5 py-3 font-medium">Check-In</th>
+                  <th className="px-5 py-3 font-medium">Check-Out</th>
+                  <th className="px-5 py-3 font-medium">Work Hours</th>
+                  <th className="px-5 py-3 font-medium">Status</th>
+                  <th className="px-5 py-3 font-medium">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-700/60">
                 {records.map((r) => (
-                  <tr key={r.id} className="hover:bg-slate-50">
-                    <td className="px-6 py-3">
+                  <tr key={r.id} className="text-slate-200 hover:bg-slate-700/30">
+                    <td className="px-5 py-3"><input type="checkbox" aria-label={`Select ${r.first_name} ${r.last_name}`} /></td>
+                    <td className="px-5 py-3">
                       <div className="flex items-center gap-3">
-                        <div className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold text-white ${colorForId(r.employee_id)}`}>
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-500 text-xs font-semibold text-white">
                           {r.first_name[0]}
                           {r.last_name[0]}
                         </div>
-                        <div>
-                          <p className="font-medium text-slate-800">
-                            {r.first_name} {r.last_name}
-                          </p>
-                          <p className="text-xs text-slate-400">{r.position}</p>
-                        </div>
+                        <p className="font-medium text-slate-100">{r.first_name} {r.last_name}</p>
                       </div>
                     </td>
-                    <td className="px-6 py-3 font-mono text-xs text-slate-500">{r.staff_no}</td>
-                    <td className="px-6 py-3 text-slate-600">{r.department_name || "—"}</td>
-                    <td className="px-6 py-3 text-slate-600">{formatDate(r.date)}</td>
-                    <td className="px-6 py-3">
-                      <AttendanceBadge status={r.status} />
+                    <td className="px-5 py-3 text-slate-300">{r.department_name || "—"}</td>
+                    <td className="px-5 py-3 text-slate-300">{formatTime(r.check_in)}</td>
+                    <td className="px-5 py-3 text-slate-300">{formatTime(r.check_out)}</td>
+                    <td className="px-5 py-3 text-slate-300">
+                      {r.check_in && r.check_out
+                        ? (() => {
+                            const [inHour, inMinute] = r.check_in.split(":").map(Number);
+                            const [outHour, outMinute] = r.check_out.split(":").map(Number);
+                            const minutes = Math.max(0, (outHour * 60 + outMinute) - (inHour * 60 + inMinute));
+                            return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+                          })()
+                        : "--"}
                     </td>
-                    <td className="px-6 py-3 text-slate-600">{formatTime(r.check_in)}</td>
-                    <td className="px-6 py-3 text-slate-600">{formatTime(r.check_out)}</td>
-                    <td className="px-6 py-3">
-                      <div className="flex items-center justify-end gap-1">
+                    <td className="px-5 py-3">
+                      <span className={`rounded-full px-3 py-1 text-xs font-medium ${
+                        r.status === "Present" ? "bg-emerald-500/20 text-emerald-300"
+                        : r.status === "Late" ? "bg-amber-500/20 text-amber-300"
+                        : r.status === "Absent" ? "bg-rose-500/20 text-rose-300"
+                        : "bg-sky-500/20 text-sky-300"
+                      }`}>{r.status}</span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-1">
                         <button
-                          className="rounded-lg p-1.5 text-slate-400 hover:bg-brand-50 hover:text-brand-600"
+                          className="rounded-md p-1.5 text-slate-400 hover:bg-slate-700 hover:text-white"
                           onClick={() => { setEditing(r); setFormOpen(true); }}
                           title="Edit"
                         >
@@ -307,9 +281,9 @@ export default function Attendance() {
         )}
 
         {!loading && records.length > 0 && (
-          <div className="flex items-center justify-between border-t border-slate-100 px-6 py-3">
-            <p className="text-sm text-slate-500">
-              Page {pagination.page} of {pagination.pages} · {pagination.total} total
+          <div className="flex items-center justify-between border-t border-slate-700/60 px-5 py-3">
+            <p className="text-xs text-slate-400">
+              Showing {((pagination.page - 1) * PAGE_SIZE) + 1}-{Math.min(pagination.page * PAGE_SIZE, pagination.total)} of {pagination.total}
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -347,6 +321,7 @@ export default function Attendance() {
         onConfirm={handleDelete}
         onCancel={() => setDeleting(null)}
       />
+      </div>
     </div>
   );
 }

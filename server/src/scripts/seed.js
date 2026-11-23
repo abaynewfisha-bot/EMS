@@ -30,10 +30,11 @@ const attendancePattern = [
 ];
 
 const settings = [
-  ["org_name", "University EMS"],
-  ["org_short_name", "UniStaff"],
-  ["currency", "USD"],
-  ["timezone", "UTC"],
+  ["org_name", "Ethiopian Employee Management System"],
+  ["org_short_name", "Ethiopian EMS"],
+  ["currency", "ETB"],
+  ["timezone", "Africa/Addis_Ababa"],
+  ["calendar", "ethiopian"],
   ["payroll_auto_compute", "true"],
   ["enable_notifications", "true"],
   ["theme", "light"],
