@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import RefreshButton from "../components/RefreshButton.jsx";
 
 const emptyGrade = { name: "", code: "", grade_level: "", min_salary: "", midpoint_salary: "", max_salary: "", currency: "USD" };
 
@@ -82,9 +83,12 @@ export default function SalaryScales() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900">Salary Scales</h2>
-        <p className="mt-1 text-sm text-slate-500">Grades, progression steps, assignments, allowances, deductions, and increments</p>
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">Salary Scales</h2>
+          <p className="mt-1 text-sm text-slate-500">Grades, progression steps, assignments, allowances, deductions, and increments</p>
+        </div>
+        <RefreshButton onClick={load} />
       </div>
 
       {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}

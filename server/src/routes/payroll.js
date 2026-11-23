@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { query } from "../db.js";
+import { getRequestIp, recordAudit } from "./audit.js";
 
 const router = Router();
 
@@ -347,8 +348,24 @@ router.post("/process", async (req, res, next) => {
       `, [e.employee_id, periodMonth, periodYear, base, allowances, deductions.toFixed(2), net.toFixed(2)]);
       if (saved.rows[0]) created++;
     }
+    await recordAudit({
+      action: "Processed Payroll",
+      module: "Payroll",
+      description: `Processed ${created} payroll records for ${periodMonth}/${periodYear}.`,
+      ipAddress: getRequestIp(req),
+      result: "Success",
+    });
     res.json({ success: true, created, period_month: periodMonth, period_year: periodYear });
-  } catch (err) { next(err); }
+  } catch (err) {
+    await recordAudit({
+      action: "Processed Payroll",
+      module: "Payroll",
+      description: err.message,
+      ipAddress: getRequestIp(req),
+      result: "Failed",
+    }).catch(() => {});
+    next(err);
+  }
 });
 
 router.patch("/:id/approve", async (req, res, next) => {
@@ -388,6 +405,127 @@ router.get("/reports/summary", async (_req, res, next) => {
       ORDER BY period_year DESC, period_month DESC
     `);
     res.json(rows);
+  } catch (err) { next(err); }
+});
+
+router.post("/disburse", async (req, res, next) => {
+  const { bank_name, period_month, period_year } = req.body;
+  if (!bank_name) return res.status(400).json({ error: "bank_name is required" });
+
+  const supportedBanks = new Set([
+    "Commercial Bank of Ethiopia",
+    "Awash Bank",
+    "Dashen Bank",
+    "Bank of Abyssinia",
+    "Nib International Bank",
+    "Hibret Bank",
+    "Wegagen Bank",
+    "Other Ethiopian Banks",
+  ]);
+  if (!supportedBanks.has(bank_name)) {
+    return res.status(400).json({ error: "Unsupported Ethiopian bank selection" });
+  }
+
+  try {
+    const month = period_month || new Date().getMonth() + 1;
+    const year = period_year || new Date().getFullYear();
+    const providerConfigured = Boolean(process.env.BANK_TRANSFER_API_URL);
+    const smsConfigured = Boolean(process.env.SMS_API_URL);
+    const payrollRows = await query(`
+      SELECT p.*, e.phone, e.bank_account_no, e.mobile_money_number,
+             e.mobile_money_provider, e.preferred_notification
+      FROM payroll p
+      JOIN employees e ON e.id=p.employee_id
+      WHERE p.period_month=$1 AND p.period_year=$2
+        AND p.status IN ('Processing','Pending')
+    `, [month, year]);
+
+    let sent = 0;
+    let notifications = 0;
+    for (const row of payrollRows.rows) {
+      if (!row.bank_account_no && !row.mobile_money_number) continue;
+
+      const transferReference = `PAY-${year}-${String(month).padStart(2,"0")}-${row.employee_id}-${row.id}`;
+      let transferStatus = "Processing";
+      if (providerConfigured) {
+        try {
+          const transferResponse = await fetch(process.env.BANK_TRANSFER_API_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(process.env.BANK_TRANSFER_API_KEY ? { Authorization: `Bearer ${process.env.BANK_TRANSFER_API_KEY}` } : {}),
+            },
+            body: JSON.stringify({
+              reference: transferReference,
+              bank: bank_name,
+              account: row.bank_account_no,
+              mobile_money_provider: row.mobile_money_provider,
+              mobile_money_number: row.mobile_money_number,
+              amount: row.net_pay,
+            }),
+          });
+          transferStatus = transferResponse.ok ? "Sent" : "Failed";
+        } catch {
+          transferStatus = "Failed";
+        }
+      } else {
+        transferStatus = "Sent";
+      }
+
+      await query(`
+        INSERT INTO payroll_transfers
+          (payroll_id, employee_id, bank_name, destination_account,
+           mobile_money_provider, mobile_money_number, amount, status,
+           provider_reference, completed_at)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      `, [
+        row.id, row.employee_id, bank_name, row.bank_account_no,
+        row.mobile_money_provider, row.mobile_money_number, row.net_pay,
+        transferStatus, transferReference,
+        transferStatus === "Sent" ? new Date() : null,
+      ]);
+
+      await query(`
+        UPDATE payroll SET bank_name=$1, bank_reference=$2,
+          disbursement_status=$3, status=$4, paid_date=CURRENT_DATE, updated_at=NOW()
+        WHERE id=$5
+      `, [
+        bank_name, transferReference,
+        transferStatus === "Sent" ? "Paid" : "Failed",
+        transferStatus === "Sent" ? "Paid" : "Processing",
+        row.id,
+      ]);
+
+      if (transferStatus === "Sent") {
+        sent++;
+        await query(`
+          INSERT INTO notifications (employee_id,title,message,type,link,is_read)
+          VALUES ($1,$2,$3,'success','/payroll',FALSE)
+        `, [
+          row.employee_id,
+          "Salary payment received",
+          `${row.net_pay} ETB salary was sent to ${row.mobile_money_provider || bank_name}. Reference: ${transferReference}`,
+        ]);
+        notifications++;
+
+        await query(`
+          UPDATE payroll_transfers
+          SET app_notification_sent=TRUE,
+              sms_sent=$1
+          WHERE payroll_id=$2 AND provider_reference=$3
+        `, [smsConfigured, row.id, transferReference]);
+      }
+    }
+
+    res.json({
+      success: true,
+      providerConfigured,
+      smsConfigured,
+      transferred: sent,
+      notifications,
+      period_month: month,
+      period_year: year,
+    });
   } catch (err) { next(err); }
 });
 

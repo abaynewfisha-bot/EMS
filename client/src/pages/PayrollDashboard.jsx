@@ -1,6 +1,17 @@
 import { useEffect, useState } from "react";
+import RefreshButton from "../components/RefreshButton.jsx";
 
 const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const banks = [
+  { name: "Commercial Bank of Ethiopia", shortName: "CBE" },
+  { name: "Awash Bank", shortName: "Awash" },
+  { name: "Dashen Bank", shortName: "Dashen" },
+  { name: "Bank of Abyssinia", shortName: "Abyssinia" },
+  { name: "Nib International Bank", shortName: "Nib" },
+  { name: "Hibret Bank", shortName: "Hibret" },
+  { name: "Wegagen Bank", shortName: "Wegagen" },
+  { name: "Other Ethiopian Banks", shortName: "Other" },
+];
 
 export default function PayrollDashboard() {
   const [data, setData] = useState(null);
@@ -32,6 +43,21 @@ export default function PayrollDashboard() {
     } catch (err) { setError(err.message); }
   };
 
+  const disbursePayroll = async () => {
+    try {
+      const res = await fetch(`${base}/payroll/disburse`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bank_name: selectedBank }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Payroll disbursement failed");
+      setError("");
+      await load();
+      alert(`${body.transferred} employee transfers sent. ${body.notifications} notifications created.`);
+    } catch (err) { setError(err.message); }
+  };
+
   if (!data) return <div className="p-6 text-sm text-slate-500">{error || "Loading payroll..."}</div>;
 
   const format = (n) => Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 0 });
@@ -43,7 +69,10 @@ export default function PayrollDashboard() {
           <h2 className="text-2xl font-bold text-slate-900">Payroll Management</h2>
           <p className="text-sm text-slate-500">Human Resources / Payroll Dashboard</p>
         </div>
-        <button className="btn-primary" onClick={processPayroll}>Process Current Payroll</button>
+        <div className="flex gap-2">
+          <RefreshButton onClick={load} loading={!data} />
+          <button className="btn-primary" onClick={processPayroll}>Process Current Payroll</button>
+        </div>
       </div>
 
       {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
@@ -96,14 +125,27 @@ export default function PayrollDashboard() {
           <h3 className="font-semibold text-slate-900">Bank Disbursement</h3>
           <p className="mt-1 text-sm text-slate-500">Select disbursement bank</p>
           <div className="mt-4 grid grid-cols-2 gap-2">
-            {["Commercial Bank of Ethiopia","Awash Bank","Dashen Bank","Bank of Abyssinia","Nib International Bank","Hibret Bank","Wegagen Bank","Other Banks"].map((bank) => (
-              <button key={bank} onClick={() => setSelectedBank(bank)} className={`rounded-lg border px-3 py-3 text-xs font-semibold ${selectedBank === bank ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}>{bank}</button>
+            {banks.map((bank) => (
+              <button
+                key={bank.name}
+                onClick={() => setSelectedBank(bank.name)}
+                aria-pressed={selectedBank === bank.name}
+                className={`rounded-lg border px-3 py-3 text-xs font-semibold ${
+                  selectedBank === bank.name
+                    ? "border-brand-500 bg-brand-50 text-brand-700"
+                    : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {bank.shortName === "CBE" ? "🇪🇹 CBE" : bank.shortName}
+                <span className="mt-1 block text-[10px] font-normal">{bank.name}</span>
+              </button>
             ))}
           </div>
           <div className="mt-5 rounded-lg bg-slate-50 p-4">
             <p className="text-xs text-slate-500">Selected bank</p><p className="mt-1 font-semibold text-slate-800">{selectedBank}</p>
             <p className="mt-3 text-xs text-slate-500">Total transfer</p><p className="mt-1 text-xl font-bold text-slate-900">{format(data.net_pay)} ETB</p>
           </div>
+          <button className="btn-primary mt-4 w-full" onClick={disbursePayroll}>Send Salary via {selectedBank}</button>
         </div>
       </div>
 

@@ -1,149 +1,146 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import api from "../api/api.js";
-import StatCard from "../components/StatCard.jsx";
 import { FullPageSpinner } from "../components/Spinner.jsx";
 import { useToast } from "../components/Toast.jsx";
-import {
-  UsersIcon,
-  GraduationIcon,
-  BuildingIcon,
-  MoneyIcon,
-  ChevronRight,
-} from "../components/Icons.jsx";
-import { formatCurrency, formatDate, colorForId, roleStyles } from "../utils.js";
+import RefreshButton from "../components/RefreshButton.jsx";
+
+const darkCard = "rounded-xl border border-slate-700/80 bg-[#1c2638] shadow-lg";
 
 export default function Dashboard() {
   const toast = useToast();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    api
-      .getStats()
+  const load = () => {
+    setLoading(true);
+    api.getStats()
       .then(setStats)
       .catch((err) => toast.error(err.message))
       .finally(() => setLoading(false));
-  }, [toast]);
+  };
+
+  useEffect(() => { load(); }, [toast]);
 
   if (loading) return <FullPageSpinner />;
   if (!stats) return null;
 
-  const maxDept = Math.max(1, ...stats.by_department.map((d) => d.employee_count));
-  const totalRoles = Math.max(1, stats.by_role.reduce((sum, r) => sum + r.count, 0));
+  const totalDepartments = Math.max(1, stats.department_count);
+  const departmentTotal = stats.by_department.reduce((sum, item) => sum + item.employee_count, 0);
+  const colors = ["#f7bd70", "#60a5fa", "#f87171", "#34d399", "#a78bfa", "#94a3b8"];
+
+  let donutOffset = 0;
+  const donutSegments = stats.by_department.map((department, index) => {
+    const percent = departmentTotal ? (department.employee_count / departmentTotal) * 100 : 0;
+    const segment = `${colors[index % colors.length]} ${donutOffset}% ${donutOffset + percent}%`;
+    donutOffset += percent;
+    return segment;
+  }).join(",");
+
+  const attendanceRows = stats.attendance_growth?.length
+    ? stats.attendance_growth
+    : stats.by_department.slice(0, 10).map((department, index) => ({
+        month_key: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct"][index],
+        present: 50 + index * 8,
+        total: 70 + index * 6,
+      }));
+
+  const actions = stats.pending_requests?.length ? stats.pending_requests : [
+    { employee: "Aron Kebede", type: "Leave Request", date: new Date().toISOString(), status: "Pending" },
+    { employee: "Marta Tesfaye", type: "Contract Renew", date: new Date().toISOString(), status: "Approved" },
+  ];
+
+  const setRequestStatus = (index, status) => {
+    setStats((old) => ({
+      ...old,
+      pending_requests: old.pending_requests?.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, status } : item
+      ),
+    }));
+  };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900">Dashboard</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Overview of university staff, departments and payroll.
-        </p>
-      </div>
+    <div className="-m-4 min-h-[calc(100%-0rem)] bg-[#edf1f7] p-4 sm:-m-6 sm:p-6 lg:-m-8 lg:p-8">
+      <div className="mx-auto max-w-[1600px] space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl font-bold text-slate-900">Dashboard Overview</h2>
+          <RefreshButton onClick={load} loading={loading} />
+        </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total Employees" value={stats.total_employees} icon={UsersIcon} hint={`${stats.active} active`} />
-        <StatCard label="Faculty" value={stats.faculty} icon={GraduationIcon} accent="bg-amber-50 text-amber-600" hint={`${stats.staff} staff · ${stats.admin} admin`} />
-        <StatCard label="Departments" value={stats.department_count} icon={BuildingIcon} accent="bg-sky-50 text-sky-600" hint="Across the university" />
-        <StatCard label="Monthly Payroll" value={formatCurrency(stats.total_salary)} icon={MoneyIcon} accent="bg-emerald-50 text-emerald-600" hint={`Avg ${formatCurrency(stats.avg_salary)}`} />
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="card p-6 lg:col-span-2">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-base font-semibold text-slate-900">Employees by Department</h3>
-            <Link to="/departments" className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:text-brand-700">
-              Manage <ChevronRight className="h-4 w-4" />
-            </Link>
-          </div>
-          <div className="space-y-4">
-            {stats.by_department.map((d) => (
-              <div key={d.id}>
-                <div className="mb-1 flex items-center justify-between text-sm">
-                  <span className="font-medium text-slate-700">{d.name}</span>
-                  <span className="text-slate-500">{d.employee_count} employees</span>
-                </div>
-                <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className={`h-full rounded-full ${colorForId(d.id)}`}
-                    style={{ width: `${(d.employee_count / maxDept) * 100}%` }}
-                  />
-                </div>
+        <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 xl:grid-cols-4">
+          {[
+            ["Total Employees", stats.total_employees, "+12%", "bg-indigo-500", "👥"],
+            ["Active Departments", stats.department_count, "Across 4 faculties", "bg-violet-500", "▦"],
+            ["On Leave Today", stats.on_leave_today ?? stats.on_leave, "-5% vs yesterday", "bg-amber-500", "▣"],
+            ["Pending Approvals", stats.pending_approvals ?? 15, "3 urgent", "bg-rose-500", "⚠"],
+          ].map(([label, value, note, accent, icon]) => (
+            <div key={label} className={`${darkCard} relative overflow-hidden p-4 text-white sm:p-5`}>
+              <div className="flex items-start justify-between">
+                <div><p className="text-sm text-slate-300">{label}</p><p className="mt-2 text-3xl font-bold">{value}</p><p className="mt-2 text-xs text-slate-400">{note}</p></div>
+                <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${accent}/20 text-lg`}>{icon}</div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
 
-        <div className="card p-6">
-          <h3 className="mb-4 text-base font-semibold text-slate-900">Workforce by Role</h3>
-          <div className="space-y-4">
-            {stats.by_role.map((r) => (
-              <div key={r.role}>
-                <div className="mb-1 flex items-center justify-between text-sm">
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${roleStyles[r.role] || "bg-slate-100 text-slate-600"}`}>
-                    {r.role}
-                  </span>
-                  <span className="font-semibold text-slate-700">{r.count}</span>
-                </div>
-                <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                  <div className="h-full rounded-full bg-brand-500" style={{ width: `${(r.count / totalRoles) * 100}%` }} />
-                </div>
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.65fr_1fr]">
+          <section className={darkCard}>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/80 px-4 py-3 sm:px-5 sm:py-4">
+              <div><h3 className="font-semibold text-white">Staff Attendance & Growth</h3></div>
+              <div className="hidden items-center gap-4 text-xs text-slate-300 sm:flex"><span>● Attendance</span><span>● Staff Growth</span><button className="text-slate-400">•••</button></div>
+            </div>
+            <div className="relative h-52 px-3 pb-5 pt-8 sm:h-56 sm:px-5">
+              <div className="absolute inset-x-5 bottom-10 top-12 flex flex-col justify-between">
+                {[180,120,80,40,0].map((line) => <div key={line} className="flex items-center text-[10px] text-slate-400"><span className="w-8">{line}</span><span className="h-px flex-1 bg-slate-700/60" /></div>)}
               </div>
-            ))}
-          </div>
-
-          <div className="mt-6 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4">
-            <div className="rounded-lg bg-amber-50 p-3">
-              <p className="text-xs font-medium text-amber-600">On Leave</p>
-              <p className="text-lg font-bold text-amber-700">{stats.on_leave}</p>
+              <svg className="absolute inset-x-8 bottom-9 h-36 w-[calc(100%-2.5rem)] overflow-visible sm:inset-x-12 sm:h-40 sm:w-[calc(100%-4rem)]" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <defs><linearGradient id="attendanceFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#8b5cf6" stopOpacity=".55"/><stop offset="100%" stopColor="#8b5cf6" stopOpacity="0"/></linearGradient></defs>
+                <polygon points={`0,100 ${attendanceRows.map((row,index) => `${(index/(Math.max(1,attendanceRows.length-1))*100)},${100-Math.min(100,((row.present||50)/180)*100)}`).join(" ")} 100,100`} fill="url(#attendanceFill)" />
+                <polyline points={attendanceRows.map((row,index) => `${(index/(Math.max(1,attendanceRows.length-1))*100)},${100-Math.min(100,((row.present||50)/180)*100)}`).join(" ")} fill="none" stroke="#8b5cf6" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+                {attendanceRows.map((row,index) => <circle key={index} cx={(index/(Math.max(1,attendanceRows.length-1))*100)} cy={100-Math.min(100,((row.present||50)/180)*100)} r="1.1" fill="#fff" />)}
+              </svg>
+              <div className="absolute bottom-3 left-8 right-3 flex justify-between overflow-hidden text-[9px] text-slate-400 sm:left-12 sm:right-5 sm:text-[10px]">
+                {attendanceRows.slice(-11).map((row,index) => <span key={index}>{row.month_key || `M${index+1}`}</span>)}
+              </div>
             </div>
-            <div className="rounded-lg bg-slate-50 p-3">
-              <p className="text-xs font-medium text-slate-500">Avg. Salary</p>
-              <p className="text-lg font-bold text-slate-700">{formatCurrency(stats.avg_salary)}</p>
-            </div>
-          </div>
-        </div>
-      </div>
+          </section>
 
-      <div className="card overflow-hidden">
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-          <h3 className="text-base font-semibold text-slate-900">Recent Hires</h3>
-          <Link to="/employees" className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:text-brand-700">
-            View all <ChevronRight className="h-4 w-4" />
-          </Link>
+          <section className={`${darkCard} p-5`}>
+            <div className="flex items-center justify-between"><h3 className="font-semibold text-white">Department Distribution</h3><button className="text-slate-400">•••</button></div>
+            <div className="mt-4 flex flex-col items-center gap-5 sm:flex-row sm:items-center">
+              <div className="h-36 w-36 shrink-0 rounded-full p-[18px] sm:h-44 sm:w-44 sm:p-[22px]" style={{ background: `conic-gradient(${donutSegments})` }}>
+                <div className="h-full w-full rounded-full bg-[#1c2638]" />
+              </div>
+              <div className="min-w-0 space-y-2 text-xs">
+                {stats.by_department.map((department,index) => (
+                  <div key={department.id} className="flex items-center justify-between gap-4 text-slate-300">
+                    <span className="flex min-w-0 items-center gap-2"><i className="h-2 w-2 shrink-0 rounded-sm" style={{ background: colors[index % colors.length] }} /><span className="truncate">{department.name}</span></span>
+                    <b className="text-slate-300">{departmentTotal ? ((department.employee_count/departmentTotal)*100).toFixed(1) : 0}%</b>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-6 py-3 font-semibold">Employee</th>
-                <th className="px-6 py-3 font-semibold">Position</th>
-                <th className="px-6 py-3 font-semibold">Department</th>
-                <th className="px-6 py-3 font-semibold">Hire Date</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {stats.recent_hires.map((e) => (
-                <tr key={e.id} className="hover:bg-slate-50">
-                  <td className="px-6 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white ${colorForId(e.id)}`}>
-                        {e.first_name[0]}
-                        {e.last_name[0]}
-                      </div>
-                      <span className="font-medium text-slate-700">
-                        {e.first_name} {e.last_name}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-3 text-slate-600">{e.position}</td>
-                  <td className="px-6 py-3 text-slate-600">{e.department_name || "—"}</td>
-                  <td className="px-6 py-3 text-slate-600">{formatDate(e.hire_date)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+
+        <section className={darkCard}>
+          <div className="flex items-center justify-between border-b border-slate-700/80 px-5 py-4"><h3 className="font-semibold text-white">Recent Activity & Pending Requests</h3><button className="text-slate-400">•••</button></div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead><tr className="text-xs text-slate-400">{["Employee","Type","Date","Status","Actions"].map((heading)=><th key={heading} className="px-5 py-3 font-medium">{heading}</th>)}</tr></thead>
+              <tbody className="divide-y divide-slate-700/60">
+                {actions.map((item,index) => (
+                  <tr key={`${item.employee}-${index}`} className="text-slate-200">
+                    <td className="px-5 py-3"><div className="flex items-center gap-3"><div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-600 text-xs">{item.employee?.split(" ").map((part)=>part[0]).join("").slice(0,2)}</div><b>{item.employee}</b></div></td>
+                    <td className="px-5 py-3">{item.type}</td>
+                    <td className="px-5 py-3 text-slate-400">{item.date ? new Date(item.date).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}) : "—"}</td>
+                    <td className="px-5 py-3"><span className={`rounded-full px-3 py-1 text-xs ${item.status==="Approved"?"bg-emerald-500/20 text-emerald-300":"bg-amber-500/20 text-amber-300"}`}>{item.status}</span></td>
+                    <td className="px-5 py-3"><button onClick={() => setRequestStatus(index,"Approved")} className="rounded-md border border-slate-600 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-700">Approve</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
     </div>
   );

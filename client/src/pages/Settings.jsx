@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "../api/api.js";
 import { FullPageSpinner } from "../components/Spinner.jsx";
 import { useToast } from "../components/Toast.jsx";
+import RefreshButton from "../components/RefreshButton.jsx";
 
 const DEFAULTS = {
   org_name: "University EMS",
@@ -21,12 +22,17 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
+  const load = () => {
+    setLoading(true);
     api
       .getSettings()
       .then((data) => setSettings((s) => ({ ...s, ...data })))
       .catch((e) => toast.error(e.message))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load();
   }, [toast]);
 
   const handleChange = (e) => {
@@ -55,9 +61,12 @@ export default function Settings() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900">Settings</h2>
-        <p className="mt-1 text-sm text-slate-500">Configure system preferences</p>
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">Settings</h2>
+          <p className="mt-1 text-sm text-slate-500">Configure system preferences</p>
+        </div>
+        <RefreshButton onClick={load} loading={loading} />
       </div>
 
       <form onSubmit={save} className="space-y-5">

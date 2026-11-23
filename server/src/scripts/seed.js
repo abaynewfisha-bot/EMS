@@ -202,6 +202,21 @@ async function seed() {
       );
 
       await client.query(
+        `UPDATE employees
+         SET bank_name='Commercial Bank of Ethiopia',
+             bank_account_no=$1,
+             mobile_money_provider='Telebirr',
+             mobile_money_number=$2,
+             preferred_notification='SMS + Mobile Bank'
+         WHERE id=$3`,
+        [
+          `100000${String(i + 1).padStart(6, "0")}`,
+          `+251900${String(i + 1).padStart(6, "0")}`,
+          employeeIds[i],
+        ]
+      );
+
+      await client.query(
         `INSERT INTO salary_allowances
           (employee_id, name, amount, is_taxable)
          VALUES ($1,'Transport Allowance',$2,TRUE),($1,'Housing Allowance',$3,FALSE)`,
@@ -386,6 +401,31 @@ async function seed() {
          (NULL, 'Leave requests', 'New leave requests are awaiting your review.', 'warning', '/employees'),
          (NULL, 'System update', 'University employee settings were updated successfully.', 'success', '/settings')`
     );
+
+    await client.query(`
+      INSERT INTO audit_log
+        (user_id, action, module, description, entity_type, ip_address, result)
+      SELECT u.id, 'Login', 'Authentication',
+             'Administrator logged into the system.', 'Authentication',
+             '127.0.0.1', 'Success'
+      FROM users u WHERE u.username='admin'
+    `);
+    await client.query(`
+      INSERT INTO audit_log
+        (user_id, action, module, description, entity_type, ip_address, result)
+      SELECT u.id, 'Processed Payroll', 'Payroll',
+             'Payroll records processed for the current period.', 'Payroll',
+             '127.0.0.1', 'Success'
+      FROM users u WHERE u.username='admin'
+    `);
+    await client.query(`
+      INSERT INTO audit_log
+        (user_id, action, module, description, entity_type, ip_address, result)
+      SELECT u.id, 'Updated Settings', 'Settings',
+             'Organization and system settings were updated.', 'Settings',
+             '127.0.0.1', 'Success'
+      FROM users u WHERE u.username='admin'
+    `);
 
     await client.query("COMMIT");
     console.log(

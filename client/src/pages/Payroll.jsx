@@ -6,6 +6,7 @@ import { FullPageSpinner } from "../components/Spinner.jsx";
 import { useToast } from "../components/Toast.jsx";
 import { SearchIcon, PlusIcon, EditIcon, TrashIcon, ChevronLeft, ChevronRight, BankIcon } from "../components/Icons.jsx";
 import { formatCurrency, formatDate, colorForId } from "../utils.js";
+import RefreshButton from "../components/RefreshButton.jsx";
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => ({
   value: String(i + 1).padStart(2, "0"),
@@ -116,9 +117,12 @@ export default function Payroll() {
           <h2 className="text-2xl font-bold text-slate-900">Payroll</h2>
           <p className="mt-1 text-sm text-slate-500">{pagination.total} payroll records</p>
         </div>
-        <button className="btn-primary" onClick={() => { setEditing(null); setFormOpen(true); }}>
-          <PlusIcon className="h-4 w-4" /> Add Payroll
-        </button>
+        <div className="flex gap-2">
+          <RefreshButton onClick={load} loading={loading} />
+          <button className="btn-primary" onClick={() => { setEditing(null); setFormOpen(true); }}>
+            <PlusIcon className="h-4 w-4" /> Add Payroll
+          </button>
+        </div>
       </div>
 
       <div className="card p-4">

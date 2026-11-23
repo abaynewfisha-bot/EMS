@@ -129,15 +129,15 @@ export default function Layout({ children }) {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-100">
-      <aside className="hidden w-64 shrink-0 flex-col bg-slate-900 lg:flex">
+    <div className="flex h-screen overflow-hidden bg-[#eef2f8]">
+      <aside className="hidden w-64 shrink-0 flex-col bg-[#111827] lg:flex">
         <SidebarContent />
       </aside>
 
       {mobileOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-slate-900/50" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute left-0 top-0 flex h-full w-64 flex-col bg-slate-900">
+          <aside className="absolute left-0 top-0 flex h-full w-[min(280px,85vw)] flex-col bg-slate-900">
             <button
               className="absolute right-3 top-4 rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white"
               onClick={() => setMobileOpen(false)}
@@ -151,7 +151,7 @@ export default function Layout({ children }) {
       )}
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 sm:px-6 lg:px-8">
+        <header className="flex min-h-14 items-center justify-between gap-3 border-b border-slate-200 bg-white px-3 py-2.5 sm:px-6 lg:px-8">
           <button
             className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 lg:hidden"
             onClick={() => setMobileOpen(true)}
@@ -159,8 +159,12 @@ export default function Layout({ children }) {
           >
             <MenuIcon />
           </button>
-          <div className="hidden lg:block">
-            <h1 className="text-sm font-semibold text-slate-500">Welcome back, {displayName}</h1>
+          <div className="hidden flex-1 lg:block">
+            <input
+              className="input max-w-md border-slate-200 bg-slate-50"
+              placeholder="Search anything..."
+              aria-label="Search"
+            />
           </div>
           <div className="flex items-center gap-3">
             <div className="hidden text-right sm:block">

@@ -120,6 +120,33 @@ ON notifications(employee_id, is_read, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(is_read);
 CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at DESC);
 
+ALTER TABLE employees
+  ADD COLUMN IF NOT EXISTS bank_name VARCHAR(120),
+  ADD COLUMN IF NOT EXISTS bank_account_no VARCHAR(80),
+  ADD COLUMN IF NOT EXISTS mobile_money_provider VARCHAR(80),
+  ADD COLUMN IF NOT EXISTS mobile_money_number VARCHAR(40),
+  ADD COLUMN IF NOT EXISTS preferred_notification VARCHAR(20) NOT NULL DEFAULT 'In-App'
+    CHECK (preferred_notification IN ('In-App', 'SMS', 'Mobile Bank', 'SMS + Mobile Bank'));
+
+CREATE TABLE IF NOT EXISTS payroll_transfers (
+  id BIGSERIAL PRIMARY KEY,
+  payroll_id INTEGER NOT NULL REFERENCES payroll(id) ON DELETE CASCADE,
+  employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  bank_name VARCHAR(120) NOT NULL,
+  destination_account VARCHAR(80),
+  mobile_money_provider VARCHAR(80),
+  mobile_money_number VARCHAR(40),
+  amount NUMERIC(12, 2) NOT NULL CHECK (amount >= 0),
+  status VARCHAR(20) NOT NULL DEFAULT 'Processing'
+    CHECK (status IN ('Processing', 'Sent', 'Confirmed', 'Failed')),
+  provider_reference VARCHAR(160),
+  failure_reason TEXT,
+  sms_sent BOOLEAN NOT NULL DEFAULT FALSE,
+  app_notification_sent BOOLEAN NOT NULL DEFAULT FALSE,
+  attempted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at TIMESTAMPTZ
+);
+
 CREATE TABLE IF NOT EXISTS settings (
   key         VARCHAR(60) PRIMARY KEY,
   value       TEXT,
@@ -483,6 +510,12 @@ CREATE TABLE IF NOT EXISTS audit_log (
   ip_address  INET,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE audit_log
+  ADD COLUMN IF NOT EXISTS module VARCHAR(80),
+  ADD COLUMN IF NOT EXISTS description TEXT,
+  ADD COLUMN IF NOT EXISTS result VARCHAR(20) NOT NULL DEFAULT 'Success'
+    CHECK (result IN ('Success', 'Failed', 'Warning'));
 
 CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_entity

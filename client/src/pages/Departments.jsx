@@ -6,6 +6,7 @@ import { FullPageSpinner } from "../components/Spinner.jsx";
 import { useToast } from "../components/Toast.jsx";
 import { PlusIcon, EditIcon, TrashIcon, UsersIcon, BuildingIcon } from "../components/Icons.jsx";
 import { colorForId } from "../utils.js";
+import RefreshButton from "../components/RefreshButton.jsx";
 
 export default function Departments() {
   const toast = useToast();
@@ -68,9 +69,12 @@ export default function Departments() {
             {departments.length} departments · {totalEmployees} employees assigned
           </p>
         </div>
-        <button className="btn-primary" onClick={() => { setEditing(null); setFormOpen(true); }}>
-          <PlusIcon className="h-4 w-4" /> Add Department
-        </button>
+        <div className="flex gap-2">
+          <RefreshButton onClick={load} loading={loading} />
+          <button className="btn-primary" onClick={() => { setEditing(null); setFormOpen(true); }}>
+            <PlusIcon className="h-4 w-4" /> Add Department
+          </button>
+        </div>
       </div>
 
       {loading ? (

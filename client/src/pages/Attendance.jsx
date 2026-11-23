@@ -19,6 +19,7 @@ import {
   CalendarIcon,
 } from "../components/Icons.jsx";
 import { formatDate, formatTime, colorForId, toISODate, ATTENDANCE_STATUSES } from "../utils.js";
+import RefreshButton from "../components/RefreshButton.jsx";
 
 const PAGE_SIZE = 10;
 
@@ -154,9 +155,12 @@ export default function Attendance() {
             {pagination.total} records from {formatDate(from)} to {formatDate(to)}
           </p>
         </div>
-        <button className="btn-primary" onClick={() => { setEditing(null); setFormOpen(true); }}>
-          <PlusIcon className="h-4 w-4" /> Mark Attendance
-        </button>
+        <div className="flex gap-2">
+          <RefreshButton onClick={load} loading={loading} />
+          <button className="btn-primary" onClick={() => { setEditing(null); setFormOpen(true); }}>
+            <PlusIcon className="h-4 w-4" /> Mark Attendance
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

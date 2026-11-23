@@ -13,6 +13,7 @@ import notificationsRouter from "./routes/notifications.js";
 import settingsRouter from "./routes/settings.js";
 import actorsRouter from "./routes/actors.js";
 import salaryRouter from "./routes/salary.js";
+import auditRouter from "./routes/audit.js";
 
 dotenv.config();
 
@@ -46,6 +47,7 @@ app.use("/api/notifications", notificationsRouter);
 app.use("/api/settings", settingsRouter);
 app.use("/api/actors", actorsRouter);
 app.use("/api/salary", salaryRouter);
+app.use("/api/audit", auditRouter);
 
 app.use((_req, res) => {
   res.status(404).json({ error: "Route not found" });

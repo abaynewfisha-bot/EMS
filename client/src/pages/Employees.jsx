@@ -7,6 +7,7 @@ import { FullPageSpinner } from "../components/Spinner.jsx";
 import { useToast } from "../components/Toast.jsx";
 import { SearchIcon, PlusIcon, EditIcon, TrashIcon, ChevronLeft, ChevronRight } from "../components/Icons.jsx";
 import { formatCurrency, formatDate, colorForId, ROLE_TYPES, STATUSES } from "../utils.js";
+import RefreshButton from "../components/RefreshButton.jsx";
 
 const PAGE_SIZE = 8;
 
@@ -124,64 +125,54 @@ export default function Employees() {
   );
 
   return (
-    <div className="space-y-5">
+    <div className="-m-4 min-h-[calc(100%-0rem)] bg-[#edf1f7] p-4 text-slate-900 sm:-m-6 sm:p-6 lg:-m-8 lg:p-8">
+      <div className="mx-auto max-w-[1600px] space-y-5">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Employees</h2>
-          <p className="mt-1 text-sm text-slate-500">{pagination.total} staff and faculty records</p>
         </div>
-        <button className="btn-primary" onClick={openCreate}>
-          <PlusIcon className="h-4 w-4" /> Add Employee
-        </button>
+        <div className="flex gap-2">
+          <RefreshButton onClick={load} loading={loading} />
+          <button className="btn-primary" onClick={openCreate}>
+            <PlusIcon className="h-4 w-4" /> Add Employee
+          </button>
+        </div>
       </div>
 
-      <div className="card p-4">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-          <div className="relative md:col-span-2">
+      <div className="rounded-xl border border-slate-700/70 bg-[#1c2638] p-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-[1.55fr_1fr_1fr_auto]">
+          <div className="relative">
             <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
-              className="input pl-9"
-              placeholder="Search by name, email, staff no or position..."
+              className="w-full rounded-lg border border-slate-600/60 bg-[#111827] py-2.5 pl-9 pr-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
+              placeholder="Search Employee..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <select className="input" value={departmentId} onChange={(e) => { setDepartmentId(e.target.value); setPage(1); }}>
-            <option value="">All Departments</option>
-            {departments.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-          <select className="input" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
-            <option value="">All Statuses</option>
-            {STATUSES.map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Role:</span>
-          <button
-            className={`rounded-full px-3 py-1 text-xs font-medium ${roleType === "" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
-            onClick={() => { setRoleType(""); setPage(1); }}
-          >
-            All
-          </button>
-          {ROLE_TYPES.map((r) => (
-            <button
-              key={r}
-              className={`rounded-full px-3 py-1 text-xs font-medium ${roleType === r ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
-              onClick={() => { setRoleType(r); setPage(1); }}
-            >
-              {r}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-300">Department</label>
+            <select className="w-full rounded-lg border border-slate-600/60 bg-[#111827] px-3 py-2 text-sm text-slate-100" value={departmentId} onChange={(e) => { setDepartmentId(e.target.value); setPage(1); }}>
+              <option value="">All Departments</option>
+              {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-300">Status</label>
+            <select className="w-full rounded-lg border border-slate-600/60 bg-[#111827] px-3 py-2 text-sm text-slate-100" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
+              <option value="">All Status</option>
+              {STATUSES.map((s) => <option key={s}>{s}</option>)}
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500" onClick={openCreate}>
+              <span className="mr-1 text-lg">+</span> Add Employee
             </button>
-          ))}
+          </div>
         </div>
       </div>
 
-      <div className="card overflow-hidden">
+      <div className="overflow-hidden rounded-xl border border-slate-700/70 bg-[#1c2638]">
         {loading ? (
           <FullPageSpinner />
         ) : employees.length === 0 ? (

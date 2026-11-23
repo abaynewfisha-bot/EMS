@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import RefreshButton from "../components/RefreshButton.jsx";
 
 const titles = {
   users: "Users",
@@ -56,9 +57,12 @@ export default function Actors() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900">{titles[actor] || actor}</h2>
-        <p className="mt-1 text-sm text-slate-500">Database records for {titles[actor] || actor}</p>
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">{titles[actor] || actor}</h2>
+          <p className="mt-1 text-sm text-slate-500">Database records for {titles[actor] || actor}</p>
+        </div>
+        <RefreshButton onClick={() => window.location.reload()} loading={loading} />
       </div>
 
       <div className="card overflow-hidden">
