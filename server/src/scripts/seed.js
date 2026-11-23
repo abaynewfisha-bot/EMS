@@ -89,7 +89,9 @@ async function seed() {
         users, refresh_tokens, positions, jobgrades, salary_scales, contracts,
         employment_history, faculty, education, emergency_contacts, documents,
         leave_types, leave_balances, leave_requests, performance_reviews,
-        publications, teaching_assignments, audit_log
+        publications, teaching_assignments, audit_log,
+        employee_salary_assignments, salary_allowances, salary_deductions,
+        salary_increment_history
       RESTART IDENTITY CASCADE
     `);
 
@@ -151,12 +153,85 @@ async function seed() {
     }
 
     await client.query(
-      `INSERT INTO jobgrades (name, code, grade_level, min_salary, max_salary)
+      `INSERT INTO jobgrades
+        (name, code, grade_level, min_salary, midpoint_salary, max_salary, version)
        VALUES
-         ('Assistant', 'ASSISTANT', 1, 2500, 4500),
-         ('Lecturer', 'LECTURER', 2, 4000, 7000),
-         ('Senior Lecturer', 'SENIOR', 3, 6500, 9000),
-         ('Professor', 'PROFESSOR', 4, 8500, 12000)`
+         ('Assistant', 'ASSISTANT', 1, 2500, 3500, 4500, 1),
+         ('Lecturer', 'LECTURER', 2, 4000, 5500, 7000, 1),
+         ('Senior Lecturer', 'SENIOR', 3, 6500, 7750, 9000, 1),
+         ('Professor', 'PROFESSOR', 4, 8500, 10250, 12000, 1)`
+    );
+
+    const gradeIds = {};
+    const gradeRows = await client.query("SELECT id, code, min_salary, midpoint_salary, max_salary FROM jobgrades");
+    for (const grade of gradeRows.rows) gradeIds[grade.code] = grade;
+
+    for (const grade of gradeRows.rows) {
+      for (let step = 1; step <= 5; step++) {
+        const min = Number(grade.min_salary);
+        const max = Number(grade.max_salary);
+        const amount = min + ((max - min) / 4) * (step - 1);
+        await client.query(
+          `INSERT INTO salary_scales
+            (name, grade_id, step_number, amount, effective_date)
+           VALUES ($1, $2, $3, $4, CURRENT_DATE)`,
+          [`${grade.code} - Step ${step}`, grade.id, step, amount.toFixed(2)]
+        );
+      }
+    }
+
+    for (let i = 0; i < employeeIds.length; i++) {
+      const gradeCodes = ["ASSISTANT", "LECTURER", "SENIOR", "PROFESSOR"];
+      const gradeCode = i < 2 ? "PROFESSOR" : i < 5 ? "SENIOR" : i < 9 ? "LECTURER" : "ASSISTANT";
+      const grade = gradeIds[gradeCode];
+      const step = (i % 5) + 1;
+      const scale = await client.query(
+        "SELECT id, amount FROM salary_scales WHERE grade_id=$1 AND step_number=$2 LIMIT 1",
+        [grade.id, step]
+      );
+      const baseSalary = scale.rows[0]?.amount || employees[i][10];
+      await client.query(
+        `INSERT INTO employee_salary_assignments
+          (employee_id, grade_id, scale_id, step_number, base_salary, is_active)
+         VALUES ($1,$2,$3,$4,$5,TRUE)`,
+        [employeeIds[i], grade.id, scale.rows[0]?.id || null, step, baseSalary]
+      );
+      await client.query(
+        "UPDATE employees SET salary=$1 WHERE id=$2",
+        [baseSalary, employeeIds[i]]
+      );
+
+      await client.query(
+        `INSERT INTO salary_allowances
+          (employee_id, name, amount, is_taxable)
+         VALUES ($1,'Transport Allowance',$2,TRUE),($1,'Housing Allowance',$3,FALSE)`,
+        [employeeIds[i], i % 2 ? 350 : 250, i % 3 ? 500 : 400]
+      );
+      await client.query(
+        `INSERT INTO salary_deductions
+          (employee_id, name, amount)
+         VALUES ($1,'Pension Contribution',$2),($1,'Health Insurance',$3)`,
+        [employeeIds[i], (Number(baseSalary) * 0.05).toFixed(2), 75]
+      );
+    }
+
+    await client.query(
+      `INSERT INTO salary_increment_history
+        (employee_id, previous_grade_id, new_grade_id, previous_step, new_step,
+         previous_salary, new_salary, effective_date, reason, status)
+       SELECT a.employee_id, a.grade_id,
+              CASE WHEN a.step_number < 5 THEN a.grade_id ELSE g.id END,
+              a.step_number,
+              CASE WHEN a.step_number < 5 THEN a.step_number + 1 ELSE 1 END,
+              a.base_salary,
+              a.base_salary + 250,
+              CURRENT_DATE + 30,
+              'Annual performance increment',
+              'Pending'
+       FROM employee_salary_assignments a
+       JOIN jobgrades g ON g.grade_level = (SELECT MIN(grade_level) FROM jobgrades)
+       WHERE a.employee_id = $1`,
+      [employeeIds[0]]
     );
 
     const payrollCount = employeeIds.length;

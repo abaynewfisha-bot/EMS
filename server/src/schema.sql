@@ -81,6 +81,16 @@ CREATE TABLE IF NOT EXISTS payroll (
   UNIQUE (employee_id, period_month, period_year)
 );
 
+ALTER TABLE payroll
+  ADD COLUMN IF NOT EXISTS approval_status VARCHAR(20) NOT NULL DEFAULT 'Pending'
+    CHECK (approval_status IN ('Pending', 'Approved', 'Rejected')),
+  ADD COLUMN IF NOT EXISTS bank_name VARCHAR(120),
+  ADD COLUMN IF NOT EXISTS bank_reference VARCHAR(120),
+  ADD COLUMN IF NOT EXISTS disbursement_status VARCHAR(20) NOT NULL DEFAULT 'Pending'
+    CHECK (disbursement_status IN ('Pending', 'Processing', 'Ready', 'Paid', 'Failed')),
+  ADD COLUMN IF NOT EXISTS approved_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;
+
 CREATE INDEX IF NOT EXISTS idx_payroll_employee ON payroll(employee_id);
 CREATE INDEX IF NOT EXISTS idx_payroll_period ON payroll(period_year, period_month);
 CREATE INDEX IF NOT EXISTS idx_payroll_status ON payroll(status);
@@ -187,6 +197,91 @@ CREATE TABLE IF NOT EXISTS salary_scales (
   UNIQUE (grade_id, step_number, effective_date),
   CHECK (amount >= 0),
   CHECK (step_number >= 1)
+);
+
+ALTER TABLE jobgrades
+  ADD COLUMN IF NOT EXISTS midpoint_salary NUMERIC(12, 2),
+  ADD COLUMN IF NOT EXISTS currency VARCHAR(10) NOT NULL DEFAULT 'USD',
+  ADD COLUMN IF NOT EXISTS effective_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
+
+UPDATE jobgrades
+SET midpoint_salary = ROUND(((COALESCE(min_salary, 0) + COALESCE(max_salary, 0)) / 2)::numeric, 2)
+WHERE midpoint_salary IS NULL;
+
+ALTER TABLE jobgrades
+  ALTER COLUMN midpoint_salary SET NOT NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'chk_jobgrade_salary_range'
+  ) THEN
+    ALTER TABLE jobgrades
+      ADD CONSTRAINT chk_jobgrade_salary_range
+      CHECK (min_salary <= midpoint_salary AND midpoint_salary <= max_salary);
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS employee_salary_assignments (
+  id SERIAL PRIMARY KEY,
+  employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  grade_id INTEGER NOT NULL REFERENCES jobgrades(id) ON DELETE RESTRICT,
+  scale_id INTEGER REFERENCES salary_scales(id) ON DELETE SET NULL,
+  step_number INTEGER NOT NULL DEFAULT 1 CHECK (step_number >= 1),
+  base_salary NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (base_salary >= 0),
+  effective_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  end_date DATE,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (end_date IS NULL OR end_date >= effective_date)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_active_employee_salary
+ON employee_salary_assignments(employee_id)
+WHERE is_active;
+
+CREATE TABLE IF NOT EXISTS salary_allowances (
+  id SERIAL PRIMARY KEY,
+  employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  name VARCHAR(100) NOT NULL,
+  amount NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (amount >= 0),
+  is_taxable BOOLEAN NOT NULL DEFAULT TRUE,
+  effective_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS salary_deductions (
+  id SERIAL PRIMARY KEY,
+  employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  name VARCHAR(100) NOT NULL,
+  amount NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (amount >= 0),
+  effective_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS salary_increment_history (
+  id SERIAL PRIMARY KEY,
+  employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  previous_grade_id INTEGER REFERENCES jobgrades(id) ON DELETE SET NULL,
+  new_grade_id INTEGER REFERENCES jobgrades(id) ON DELETE SET NULL,
+  previous_step INTEGER,
+  new_step INTEGER,
+  previous_salary NUMERIC(12, 2) NOT NULL,
+  new_salary NUMERIC(12, 2) NOT NULL,
+  effective_date DATE NOT NULL,
+  reason TEXT,
+  status VARCHAR(20) NOT NULL DEFAULT 'Pending'
+    CHECK (status IN ('Pending', 'Approved', 'Rejected')),
+  requested_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  approved_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  approved_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS contracts (

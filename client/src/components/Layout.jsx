@@ -25,7 +25,8 @@ const nav = [
     { to: "/leave-types", label: "Leave Types", icon: CalendarIcon },
     { to: "/leave-balances", label: "Leave Balances", icon: CalendarIcon },
     { to: "/leave-requests", label: "Leave Requests", icon: CalendarIcon },
-    { to: "/payroll", label: "Payroll", icon: BankIcon },
+    { to: "/payroll-dashboard", label: "Payroll Dashboard", icon: BankIcon },
+    { to: "/payroll", label: "Payroll Processing", icon: BankIcon },
     { to: "/salary-scales", label: "Salary Scales", icon: BankIcon },
   ]},
   { section: "Academic & HR", items: [
