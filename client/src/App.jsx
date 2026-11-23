@@ -10,6 +10,7 @@ import Attendance from "./pages/Attendance.jsx";
 import Payroll from "./pages/Payroll.jsx";
 import Notifications from "./pages/Notifications.jsx";
 import Settings from "./pages/Settings.jsx";
+import Actors from "./pages/Actors.jsx";
 
 function ProtectedLayout() {
   const { user } = useAuth();
@@ -36,6 +37,25 @@ export default function App() {
             <Route path="/payroll" element={<Payroll />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/faculty" element={<Actors />} />
+            <Route path="/positions" element={<Actors />} />
+            <Route path="/jobgrades" element={<Actors />} />
+            <Route path="/users" element={<Actors />} />
+            <Route path="/contracts" element={<Actors />} />
+            <Route path="/employment-history" element={<Actors />} />
+            <Route path="/education" element={<Actors />} />
+            <Route path="/emergency-contacts" element={<Actors />} />
+            <Route path="/documents" element={<Actors />} />
+            <Route path="/leave-types" element={<Actors />} />
+            <Route path="/leave-balances" element={<Actors />} />
+            <Route path="/leave-requests" element={<Actors />} />
+            <Route path="/salary-scales" element={<Actors />} />
+            <Route path="/performance-reviews" element={<Actors />} />
+            <Route path="/publications" element={<Actors />} />
+            <Route path="/teaching-assignments" element={<Actors />} />
+            <Route path="/refresh-tokens" element={<Actors />} />
+            <Route path="/audit-log" element={<Actors />} />
+            <Route path="/:actor" element={<Actors />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

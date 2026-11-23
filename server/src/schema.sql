@@ -121,3 +121,293 @@ CREATE TRIGGER trg_employees_updated_at
   BEFORE UPDATE ON employees
   FOR EACH ROW
   EXECUTE FUNCTION set_updated_at();
+
+CREATE TABLE IF NOT EXISTS users (
+  id            SERIAL PRIMARY KEY,
+  employee_id   INTEGER UNIQUE REFERENCES employees(id) ON DELETE SET NULL,
+  username      VARCHAR(80) NOT NULL UNIQUE,
+  email         VARCHAR(160) NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  role          VARCHAR(30) NOT NULL DEFAULT 'Staff'
+                  CHECK (role IN ('Admin', 'HR Manager', 'Manager', 'Staff')),
+  is_active     BOOLEAN NOT NULL DEFAULT TRUE,
+  last_login_at TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+  id          SERIAL PRIMARY KEY,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash  VARCHAR(128) NOT NULL UNIQUE,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  revoked_at  TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
+
+CREATE TABLE IF NOT EXISTS positions (
+  id          SERIAL PRIMARY KEY,
+  title       VARCHAR(120) NOT NULL,
+  department_id INTEGER REFERENCES departments(id) ON DELETE SET NULL,
+  grade       VARCHAR(30),
+  description TEXT,
+  is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_positions_department_title
+ON positions(department_id, title);
+
+CREATE TABLE IF NOT EXISTS jobgrades (
+  id          SERIAL PRIMARY KEY,
+  name        VARCHAR(80) NOT NULL UNIQUE,
+  code        VARCHAR(20) NOT NULL UNIQUE,
+  grade_level INTEGER NOT NULL,
+  min_salary  NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  max_salary  NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (min_salary >= 0),
+  CHECK (max_salary >= min_salary)
+);
+
+CREATE TABLE IF NOT EXISTS salary_scales (
+  id          SERIAL PRIMARY KEY,
+  name        VARCHAR(100) NOT NULL,
+  grade_id    INTEGER REFERENCES jobgrades(id) ON DELETE SET NULL,
+  step_number INTEGER NOT NULL DEFAULT 1,
+  amount      NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  currency    VARCHAR(10) NOT NULL DEFAULT 'USD',
+  effective_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (grade_id, step_number, effective_date),
+  CHECK (amount >= 0),
+  CHECK (step_number >= 1)
+);
+
+CREATE TABLE IF NOT EXISTS contracts (
+  id          SERIAL PRIMARY KEY,
+  employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  contract_no VARCHAR(40) NOT NULL UNIQUE,
+  title       VARCHAR(120),
+  start_date  DATE NOT NULL,
+  end_date    DATE,
+  salary      NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  terms       TEXT,
+  status      VARCHAR(20) NOT NULL DEFAULT 'Active'
+                CHECK (status IN ('Draft', 'Active', 'Expired', 'Terminated')),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (end_date IS NULL OR end_date >= start_date),
+  CHECK (salary >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_contracts_employee ON contracts(employee_id);
+CREATE INDEX IF NOT EXISTS idx_contracts_status ON contracts(status);
+
+CREATE TABLE IF NOT EXISTS employment_history (
+  id           SERIAL PRIMARY KEY,
+  employee_id  INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  position_title VARCHAR(120) NOT NULL,
+  department_id INTEGER REFERENCES departments(id) ON DELETE SET NULL,
+  start_date   DATE NOT NULL,
+  end_date     DATE,
+  employment_type VARCHAR(20),
+  notes        TEXT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (end_date IS NULL OR end_date >= start_date)
+);
+
+CREATE TABLE IF NOT EXISTS faculty (
+  id          SERIAL PRIMARY KEY,
+  department_id INTEGER REFERENCES departments(id) ON DELETE SET NULL,
+  name        VARCHAR(120) NOT NULL,
+  code        VARCHAR(20) NOT NULL UNIQUE,
+  dean        VARCHAR(120),
+  is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS education (
+  id          SERIAL PRIMARY KEY,
+  employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  institution VARCHAR(160) NOT NULL,
+  degree      VARCHAR(120),
+  field_of_study VARCHAR(120),
+  start_date  DATE,
+  end_date    DATE,
+  grade       VARCHAR(40),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (end_date IS NULL OR start_date IS NULL OR end_date >= start_date)
+);
+
+CREATE TABLE IF NOT EXISTS emergency_contacts (
+  id          SERIAL PRIMARY KEY,
+  employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  full_name   VARCHAR(160) NOT NULL,
+  relationship VARCHAR(80),
+  phone       VARCHAR(40) NOT NULL,
+  email       VARCHAR(160),
+  address     TEXT,
+  is_primary  BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_emergency_contacts_employee
+ON emergency_contacts(employee_id);
+
+CREATE TABLE IF NOT EXISTS documents (
+  id          SERIAL PRIMARY KEY,
+  employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+  title       VARCHAR(160) NOT NULL,
+  document_type VARCHAR(50),
+  file_name   VARCHAR(255) NOT NULL,
+  file_path   TEXT NOT NULL,
+  mime_type   VARCHAR(100),
+  file_size   BIGINT,
+  uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (file_size IS NULL OR file_size >= 0)
+);
+
+CREATE TABLE IF NOT EXISTS leave_types (
+  id          SERIAL PRIMARY KEY,
+  name        VARCHAR(80) NOT NULL UNIQUE,
+  code        VARCHAR(20) NOT NULL UNIQUE,
+  paid        BOOLEAN NOT NULL DEFAULT TRUE,
+  max_days    NUMERIC(5, 1),
+  description TEXT,
+  is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS leave_balances (
+  id          SERIAL PRIMARY KEY,
+  employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  leave_type_id INTEGER NOT NULL REFERENCES leave_types(id) ON DELETE CASCADE,
+  year        INTEGER NOT NULL CHECK (year BETWEEN 2000 AND 2100),
+  opening_days NUMERIC(5, 1) NOT NULL DEFAULT 0,
+  used_days    NUMERIC(5, 1) NOT NULL DEFAULT 0,
+  remaining_days NUMERIC(5, 1) NOT NULL DEFAULT 0,
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (employee_id, leave_type_id, year)
+);
+
+CREATE TABLE IF NOT EXISTS leave_requests (
+  id          SERIAL PRIMARY KEY,
+  employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  leave_type_id INTEGER NOT NULL REFERENCES leave_types(id) ON DELETE RESTRICT,
+  start_date  DATE NOT NULL,
+  end_date    DATE NOT NULL,
+  total_days  NUMERIC(5, 1) NOT NULL,
+  reason      TEXT,
+  status      VARCHAR(20) NOT NULL DEFAULT 'Pending'
+                CHECK (status IN ('Pending', 'Approved', 'Rejected', 'Cancelled')),
+  approved_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  approved_at TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (end_date >= start_date),
+  CHECK (total_days > 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_leave_requests_employee
+ON leave_requests(employee_id);
+CREATE INDEX IF NOT EXISTS idx_leave_requests_status
+ON leave_requests(status);
+
+CREATE TABLE IF NOT EXISTS performance_reviews (
+  id          SERIAL PRIMARY KEY,
+  employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  reviewer_id INTEGER REFERENCES employees(id) ON DELETE SET NULL,
+  review_period VARCHAR(40) NOT NULL,
+  review_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  rating      NUMERIC(3, 2),
+  strengths   TEXT,
+  improvements TEXT,
+  goals       TEXT,
+  comments    TEXT,
+  status      VARCHAR(20) NOT NULL DEFAULT 'Draft'
+                CHECK (status IN ('Draft', 'Submitted', 'Completed', 'Acknowledged')),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (rating IS NULL OR (rating >= 0 AND rating <= 5))
+);
+
+CREATE INDEX IF NOT EXISTS idx_performance_reviews_employee
+ON performance_reviews(employee_id);
+
+CREATE TABLE IF NOT EXISTS publications (
+  id          SERIAL PRIMARY KEY,
+  employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  title       VARCHAR(255) NOT NULL,
+  publication_type VARCHAR(50),
+  journal_or_publisher VARCHAR(160),
+  publication_date DATE,
+  doi         VARCHAR(160),
+  url         TEXT,
+  abstract    TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_publications_employee
+ON publications(employee_id);
+
+CREATE TABLE IF NOT EXISTS teaching_assignments (
+  id          SERIAL PRIMARY KEY,
+  employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  course_code VARCHAR(40) NOT NULL,
+  course_name VARCHAR(160) NOT NULL,
+  department_id INTEGER REFERENCES departments(id) ON DELETE SET NULL,
+  academic_year VARCHAR(20) NOT NULL,
+  semester    VARCHAR(30) NOT NULL,
+  section     VARCHAR(30),
+  credits     NUMERIC(4, 1),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (employee_id, course_code, academic_year, semester, section)
+);
+
+CREATE INDEX IF NOT EXISTS idx_teaching_assignments_employee
+ON teaching_assignments(employee_id);
+
+CREATE TABLE IF NOT EXISTS audit_log (
+  id          BIGSERIAL PRIMARY KEY,
+  user_id     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  employee_id INTEGER REFERENCES employees(id) ON DELETE SET NULL,
+  action      VARCHAR(80) NOT NULL,
+  entity_type VARCHAR(80) NOT NULL,
+  entity_id   VARCHAR(80),
+  old_values  JSONB,
+  new_values  JSONB,
+  ip_address  INET,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_entity
+ON audit_log(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at DESC);
+
+DROP TRIGGER IF EXISTS trg_users_updated_at ON users;
+CREATE TRIGGER trg_users_updated_at
+  BEFORE UPDATE ON users
+  FOR EACH ROW
+  EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_leave_requests_updated_at ON leave_requests;
+CREATE TRIGGER trg_leave_requests_updated_at
+  BEFORE UPDATE ON leave_requests
+  FOR EACH ROW
+  EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_leave_balances_updated_at ON leave_balances;
+CREATE TRIGGER trg_leave_balances_updated_at
+  BEFORE UPDATE ON leave_balances
+  FOR EACH ROW
+  EXECUTE FUNCTION set_updated_at();

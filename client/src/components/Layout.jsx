@@ -5,12 +5,40 @@ import { DashboardIcon, UsersIcon, BuildingIcon, GraduationIcon, CalendarIcon, M
 
 const nav = [
   { to: "/", label: "Dashboard", icon: DashboardIcon, end: true },
-  { to: "/employees", label: "Employees", icon: UsersIcon },
-  { to: "/departments", label: "Departments", icon: BuildingIcon },
-  { to: "/attendance", label: "Attendance", icon: CalendarIcon },
-  { to: "/payroll", label: "Payroll", icon: BankIcon },
-  { to: "/notifications", label: "Notifications", icon: BellIcon },
-  { to: "/settings", label: "Settings", icon: CogIcon },
+  { section: "People", items: [
+    { to: "/employees", label: "Employees", icon: UsersIcon },
+    { to: "/departments", label: "Departments", icon: BuildingIcon },
+    { to: "/faculty", label: "Faculty", icon: GraduationIcon },
+    { to: "/positions", label: "Positions", icon: UsersIcon },
+    { to: "/jobgrades", label: "Job Grades", icon: UsersIcon },
+    { to: "/users", label: "Users", icon: UsersIcon },
+  ]},
+  { section: "Employment", items: [
+    { to: "/contracts", label: "Contracts", icon: UsersIcon },
+    { to: "/employment-history", label: "Employment History", icon: UsersIcon },
+    { to: "/education", label: "Education", icon: GraduationIcon },
+    { to: "/emergency-contacts", label: "Emergency Contacts", icon: UsersIcon },
+    { to: "/documents", label: "Documents", icon: UsersIcon },
+  ]},
+  { section: "Operations", items: [
+    { to: "/attendance", label: "Attendance", icon: CalendarIcon },
+    { to: "/leave-types", label: "Leave Types", icon: CalendarIcon },
+    { to: "/leave-balances", label: "Leave Balances", icon: CalendarIcon },
+    { to: "/leave-requests", label: "Leave Requests", icon: CalendarIcon },
+    { to: "/payroll", label: "Payroll", icon: BankIcon },
+    { to: "/salary-scales", label: "Salary Scales", icon: BankIcon },
+  ]},
+  { section: "Academic & HR", items: [
+    { to: "/performance-reviews", label: "Performance Reviews", icon: GraduationIcon },
+    { to: "/publications", label: "Publications", icon: GraduationIcon },
+    { to: "/teaching-assignments", label: "Teaching Assignments", icon: GraduationIcon },
+  ]},
+  { section: "System", items: [
+    { to: "/notifications", label: "Notifications", icon: BellIcon },
+    { to: "/refresh-tokens", label: "Refresh Tokens", icon: CogIcon },
+    { to: "/audit-log", label: "Audit Log", icon: CogIcon },
+    { to: "/settings", label: "Settings", icon: CogIcon },
+  ]},
 ];
 
 function SidebarContent({ onNavigate }) {
@@ -26,25 +54,50 @@ function SidebarContent({ onNavigate }) {
         </div>
       </div>
 
-      <nav className="mt-2 flex flex-1 flex-col gap-1 px-3">
-        {nav.map(({ to, label, icon: Icon, end }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            onClick={onNavigate}
-            className={({ isActive }) =>
-              `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-                isActive
-                  ? "bg-brand-600 text-white"
-                  : "text-slate-300 hover:bg-slate-800 hover:text-white"
-              }`
-            }
-          >
-            <Icon className="h-5 w-5" />
-            {label}
-          </NavLink>
-        ))}
+      <nav className="mt-2 flex flex-1 flex-col gap-2 overflow-y-auto px-3 pb-4">
+        {nav.map((entry) =>
+          entry.items ? (
+            <div key={entry.section} className="mt-1">
+              <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                {entry.section}
+              </p>
+              {entry.items.map(({ to, label, icon: Icon }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  onClick={onNavigate}
+                  className={({ isActive }) =>
+                    `mt-0.5 flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                      isActive
+                        ? "bg-brand-600 text-white"
+                        : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                    }`
+                  }
+                >
+                  <Icon className="h-4 w-4" />
+                  {label}
+                </NavLink>
+              ))}
+            </div>
+          ) : (
+            <NavLink
+              key={entry.to}
+              to={entry.to}
+              end={entry.end}
+              onClick={onNavigate}
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                  isActive
+                    ? "bg-brand-600 text-white"
+                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                }`
+              }
+            >
+              <entry.icon className="h-5 w-5" />
+              {entry.label}
+            </NavLink>
+          )
+        )}
       </nav>
 
       <div className="px-5 py-5 text-xs text-slate-500">

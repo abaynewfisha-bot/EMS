@@ -29,6 +29,18 @@ const attendancePattern = [
   "Remote", "Present", "Absent", "Present", "On Leave", "Present",
 ];
 
+const settings = [
+  ["org_name", "University EMS"],
+  ["org_short_name", "UniStaff"],
+  ["currency", "USD"],
+  ["timezone", "UTC"],
+  ["payroll_auto_compute", "true"],
+  ["enable_notifications", "true"],
+  ["theme", "light"],
+  ["support_email", "support@uni.edu"],
+  ["address", "University Campus, 12 University Avenue"],
+];
+
 const toISODate = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
@@ -71,9 +83,15 @@ async function seed() {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    await client.query("TRUNCATE attendance RESTART IDENTITY CASCADE");
-    await client.query("TRUNCATE employees RESTART IDENTITY CASCADE");
-    await client.query("TRUNCATE departments RESTART IDENTITY CASCADE");
+    await client.query(`
+      TRUNCATE TABLE
+        departments, employees, attendance, payroll, notifications, settings,
+        users, refresh_tokens, positions, jobgrades, salary_scales, contracts,
+        employment_history, faculty, education, emergency_contacts, documents,
+        leave_types, leave_balances, leave_requests, performance_reviews,
+        publications, teaching_assignments, audit_log
+      RESTART IDENTITY CASCADE
+    `);
 
     const deptIdByCode = {};
     for (const d of departments) {
@@ -102,9 +120,201 @@ async function seed() {
 
     const attendanceCount = await seedAttendance(client, employeeIds);
 
+    for (const [key, value] of settings) {
+      await client.query(
+        `INSERT INTO settings (key, value) VALUES ($1, $2)
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+        [key, value]
+      );
+    }
+
+    await client.query(
+      `INSERT INTO users (username, email, password_hash, role)
+       VALUES ('admin', 'admin@uni.edu', 'seed-placeholder-change-me', 'Admin')`
+    );
+
+    const leaveTypes = [
+      ["Annual Leave", "ANNUAL", true, 30],
+      ["Sick Leave", "SICK", true, 14],
+      ["Maternity Leave", "MATERNITY", true, 90],
+      ["Study Leave", "STUDY", true, 20],
+      ["Compassionate Leave", "COMPASSIONATE", true, 5],
+    ];
+    const leaveTypeIds = {};
+    for (const [name, code, paid, maxDays] of leaveTypes) {
+      const { rows } = await client.query(
+        `INSERT INTO leave_types (name, code, paid, max_days)
+         VALUES ($1, $2, $3, $4) RETURNING id`,
+        [name, code, paid, maxDays]
+      );
+      leaveTypeIds[code] = rows[0].id;
+    }
+
+    await client.query(
+      `INSERT INTO jobgrades (name, code, grade_level, min_salary, max_salary)
+       VALUES
+         ('Assistant', 'ASSISTANT', 1, 2500, 4500),
+         ('Lecturer', 'LECTURER', 2, 4000, 7000),
+         ('Senior Lecturer', 'SENIOR', 3, 6500, 9000),
+         ('Professor', 'PROFESSOR', 4, 8500, 12000)`
+    );
+
+    const payrollCount = employeeIds.length;
+    for (let i = 0; i < employeeIds.length; i++) {
+      const employee = employees[i];
+      const base = employee[10];
+      const allowances = i % 3 === 0 ? 500 : i % 3 === 1 ? 350 : 250;
+      const deductions = i % 4 === 0 ? 120 : 80;
+      const net = Math.max(0, base + allowances - deductions);
+      await client.query(
+        `INSERT INTO payroll
+          (employee_id, period_month, period_year, base_salary, allowances, deductions, net_pay, status)
+         VALUES ($1, EXTRACT(MONTH FROM CURRENT_DATE)::int,
+                 EXTRACT(YEAR FROM CURRENT_DATE)::int, $2, $3, $4, $5, $6)
+         ON CONFLICT (employee_id, period_month, period_year) DO NOTHING`,
+        [employeeIds[i], base, allowances, deductions, net, i % 5 === 0 ? "Paid" : "Pending"]
+      );
+    }
+
+    for (const deptCode of Object.keys(deptIdByCode)) {
+      const deptId = deptIdByCode[deptCode];
+      await client.query(
+        `INSERT INTO faculty (department_id, name, code)
+         SELECT $1,
+                CASE $2
+                  WHEN 'CS' THEN 'Faculty of Computing'
+                  WHEN 'EEE' THEN 'Faculty of Engineering'
+                  WHEN 'BUS' THEN 'Faculty of Management Sciences'
+                  WHEN 'MED' THEN 'Faculty of Clinical Sciences'
+                  ELSE 'Faculty of Academic Services'
+                END,
+                'FAC-' || $2
+         ON CONFLICT (code) DO NOTHING`,
+        [deptId, deptCode]
+      );
+
+      await client.query(
+        `INSERT INTO positions (title, department_id, grade)
+         SELECT 'Academic Staff', $1, 'Lecturer'
+         WHERE NOT EXISTS (
+           SELECT 1 FROM positions WHERE department_id = $1 AND title = 'Academic Staff'
+         )`,
+        [deptId]
+      );
+    }
+
+    for (let i = 0; i < employeeIds.length; i++) {
+      const employeeId = employeeIds[i];
+      const employee = employees[i];
+      const startDate = employee[11];
+
+      await client.query(
+        `INSERT INTO contracts
+          (employee_id, contract_no, title, start_date, salary, status)
+         VALUES ($1, $2, $3, $4, $5, 'Active')`,
+        [employeeId, `CON-${String(i + 1).padStart(4, "0")}`, employee[6], startDate, employee[10]]
+      );
+
+      await client.query(
+        `INSERT INTO employment_history
+          (employee_id, position_title, department_id, start_date, employment_type)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [employeeId, employee[6], i < departments.length ? deptIdByCode[employee[13]] : null, startDate, employee[8]]
+      );
+
+      await client.query(
+        `INSERT INTO education
+          (employee_id, institution, degree, field_of_study)
+         VALUES ($1, 'University of the Nation', $2, $3)`,
+        [employeeId, i < 4 ? "PhD" : "Master's Degree", i % 2 === 0 ? "Computer Science" : "Management"]
+      );
+
+      await client.query(
+        `INSERT INTO emergency_contacts
+          (employee_id, full_name, relationship, phone, is_primary)
+         VALUES ($1, $2, 'Next of Kin', $3, TRUE)`,
+        [employeeId, `Emergency Contact ${i + 1}`, `+234 802 000 ${String(i + 1).padStart(4, "0")}`]
+      );
+
+      await client.query(
+        `INSERT INTO leave_balances
+          (employee_id, leave_type_id, year, opening_days, used_days, remaining_days)
+         VALUES ($1, $2, EXTRACT(YEAR FROM CURRENT_DATE)::int, 30, $3, $4)
+         ON CONFLICT (employee_id, leave_type_id, year) DO NOTHING`,
+        [
+          employeeId,
+          leaveTypeIds.ANNUAL,
+          i % 5,
+          30 - (i % 5),
+        ]
+      );
+
+      if (i < 4) {
+        await client.query(
+          `INSERT INTO leave_requests
+            (employee_id, leave_type_id, start_date, end_date, total_days, reason, status)
+           VALUES ($1, $2, CURRENT_DATE + 7, CURRENT_DATE + 11, 5,
+                   'Personal and family matters', 'Pending')`,
+          [employeeId, leaveTypeIds.ANNUAL]
+        );
+      }
+
+      if (employee[7] === "Faculty") {
+        await client.query(
+          `INSERT INTO teaching_assignments
+            (employee_id, course_code, course_name, department_id, academic_year, semester, credits)
+           VALUES ($1, $2, $3, $4, '2026/2027', 'First Semester', 3)`,
+          [
+            employeeId,
+            `COURSE-${String(i + 1).padStart(3, "0")}`,
+            `${employee[6]} Studies`,
+            deptIdByCode[employee[13]],
+          ]
+        );
+
+        await client.query(
+          `INSERT INTO publications
+            (employee_id, title, publication_type, journal_or_publisher)
+           VALUES ($1, $2, 'Journal Article', 'University Research Journal')`,
+          [employeeId, `Research Contribution by ${employee[1]} ${employee[2]}`]
+        );
+      }
+
+      await client.query(
+        `INSERT INTO performance_reviews
+          (employee_id, reviewer_id, review_period, rating, strengths, improvements, status)
+         VALUES ($1, NULL, '2026 Annual Review', $2,
+                 'Reliable performance and strong teamwork',
+                 'Continue professional development', 'Completed')`,
+        [employeeId, (3.5 + (i % 2) * 0.5).toFixed(2)]
+      );
+
+      await client.query(
+        `INSERT INTO documents
+          (employee_id, title, document_type, file_name, file_path, mime_type)
+         VALUES ($1, 'Employee Profile Document', 'Profile',
+                 $2, $3, 'application/pdf')`,
+        [
+          employeeId,
+          `employee-${i + 1}.pdf`,
+          `/documents/employees/employee-${i + 1}.pdf`,
+        ]
+      );
+    }
+
+    await client.query(
+      `INSERT INTO notifications
+        (employee_id, title, message, type, link)
+       VALUES
+         (NULL, 'Payroll period ready', 'The current payroll period has been prepared.', 'success', '/payroll'),
+         (NULL, 'Attendance review', 'Review attendance records that need approval.', 'info', '/attendance'),
+         (NULL, 'Leave requests', 'New leave requests are awaiting your review.', 'warning', '/employees'),
+         (NULL, 'System update', 'University employee settings were updated successfully.', 'success', '/settings')`
+    );
+
     await client.query("COMMIT");
     console.log(
-      `Seeded ${departments.length} departments, ${employees.length} employees and ${attendanceCount} attendance records.`
+      `Seeded ${departments.length} departments, ${employees.length} employees, ${attendanceCount} attendance records, ${payrollCount} payroll records, settings, notifications, contracts, leave data, and supporting HR records.`
     );
   } catch (err) {
     await client.query("ROLLBACK");
