@@ -14,6 +14,7 @@ import Actors from "./pages/Actors.jsx";
 import SalaryScales from "./pages/SalaryScales.jsx";
 import PayrollDashboard from "./pages/PayrollDashboard.jsx";
 import AuditLog from "./pages/AuditLog.jsx";
+import EmergencyContacts from "./pages/EmergencyContacts.jsx";
 
 function ProtectedLayout() {
   const { user } = useAuth();
@@ -40,6 +41,7 @@ export default function App() {
             <Route path="/payroll" element={<Payroll />} />
             <Route path="/payroll-dashboard" element={<PayrollDashboard />} />
             <Route path="/audit-log" element={<AuditLog />} />
+            <Route path="/emergency-contacts" element={<EmergencyContacts />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/faculty" element={<Actors />} />
